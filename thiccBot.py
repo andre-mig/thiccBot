@@ -1,5 +1,6 @@
 #thiccBot.py
 
+import itertools
 import os 
 import discord
 from dotenv import load_dotenv
@@ -42,16 +43,52 @@ class Mixup:
     type = 0
     numGamesPlayed = 0
     maxGames = 0
-    scheduleArr = []
     randSchedule = []
+    team_size = 0
 
 mixup = Mixup()
 playerArr = []
 teamArr = []
 
+async def start_game(ctx, mixer: Mixup):
+    nextGame = "GAME " + str(mixer.numGamesPlayed + 1) + "/" + str(mixup.maxGames) + ":" 
+    
+    for x in range(mixup.team_size * 2):
+        nextGame += mixer.randSchedule[0][x]
+    await ctx.send(nextGame)
+
+def generate_schedule(players, teamsize):
+    games = list(itertools.combinations(players, teamsize * 2))
+
+    matchups = []
+    for game in games:
+        teams = list(itertools.combinations(game, teamsize))
+        teams_len = len(teams)
+        for x in range(0, int(teams_len/2)):
+            matchups.append(teams[x] + teams.pop())
+    random.shuffle(matchups)
+    return matchups
+
+def generate_teams(players, teamsize):
+    return list(itertools.combinations(players, teamsize))
+
+def initialize_mixup(players, teamsize):
+    mixup.randSchedule = generate_schedule(players, teamsize)
+    mixup.maxGames = len(mixup.randSchedule)
+    mixup.team_size = teamsize
+    teams = []
+    teams = generate_teams(players, teamsize)
+    for team in teams:
+        teamArr.append(Team(team))
+    for player in players:
+        playerArr.append(Player(str(player)))
+    print("Schedule:")
+    print(mixup.randSchedule)
+
 @bot.event
 async def on_ready():
     print(f'{bot.user} has connected to Discord.')
+
 
 @bot.event
 async def on_message(message):
@@ -73,75 +110,12 @@ async def botHelp(ctx):
     for mess in messageArr:
         await ctx.send(mess)
 
-
 @bot.command()
-async def setup(ctx, *args):
-
-    #Getting list of players from arguments
-    if (len(args) < 4 or len(args) > 6):
-        await ctx.send("I can only do 4, 5, or 6 person mixups.")
+async def start(ctx, *args):
+    if len(args) > 0:
+        await ctx.send("Use the command by itself")
         return
-    else:
-        mixup.type = len(args)
-
-    #Populate player array
-    for player in args:
-        playerArr.append(Player(str(player)))
-
-    #wanted to create a switch case but pythons dumb
-    if (mixup.type == 4):
-
-        #setup mixup info
-        mixup.maxGames = 9
-        mixup.scheduleArr = [[0,1,2,3], [0,1,2,3], [0,1,2,3],
-                            [0,2,1,3], [0,2,1,3], [0,2,1,3],
-                            [0,3,1,2], [0,3,1,2], [0,3,1,2]]
-        
-        teams = [[0,1], [0,2], [0,3], [1,2], [1,3], [2,3]]
-        for team in teams:
-            teamArr.append(Team(team))
-        
-        mixup.randSchedule = mixup.scheduleArr
-        random.shuffle(mixup.randSchedule)
-
-        firstGame = "GAME 1/9: " + playerArr[mixup.randSchedule[0][0]].name + ", " + playerArr[mixup.randSchedule[0][1]].name + " vs. " + playerArr[mixup.randSchedule[0][2]].name + ", " + playerArr[mixup.randSchedule[0][3]].name
-    
-    elif (mixup.type == 5):
-        mixup.maxGames = 15
-        mixup.scheduleArr = [[0,1,2,3], [0,1,3,4], [0,1,2,4],
-                            [0,2,1,3], [0,2,1,4], [0,2,3,4],
-                            [0,3,1,2], [0,3,1,4], [0,3,2,4],
-                            [0,4,1,2], [0,4,1,3], [0,4,2,3],
-                            [1,2,3,4], [1,3,2,4], [1,4,2,3]]
-        
-        teams = [[0,1], [0,2], [0,3], [0,4],
-                        [1,2], [1,3], [1,4], [2,3],
-                        [2,4], [3,4]]
-        
-        for team in teams:
-            teamArr.append(Team(team))
-
-        mixup.randSchedule = mixup.scheduleArr
-        random.shuffle(mixup.randSchedule)
-
-        firstGame = "GAME 1/15: " + playerArr[mixup.randSchedule[0][0]].name + ", " + playerArr[mixup.randSchedule[0][1]].name + " vs. " + playerArr[mixup.randSchedule[0][2]].name + ", " + playerArr[mixup.randSchedule[0][3]].name
-    
-    elif (mixup.type == 6):
-        mixup.maxGames = 10
-        mixup.scheduleArr = [[0,1,2, 3,4,5], [0,1,3, 2,4,5], [0,1,4, 2,3,5], [0,1,5, 2,3,4],
-                            [0,2,3, 1,4,5], [0,2,4, 1,3,5], [0,2,5, 1,3,4],
-                            [0,3,4, 1,2,5], [0,3,5, 1,2,4], [1,2,3, 0,4,5], ]
-        
-        mixup.randSchedule = mixup.scheduleArr
-        random.shuffle(mixup.randSchedule)
-
-        firstGame = "GAME 1/10: " + playerArr[mixup.randSchedule[0][0]].name + ", " + playerArr[mixup.randSchedule[0][1]].name + ", " + playerArr[mixup.randSchedule[0][2]].name + " vs. " + playerArr[mixup.randSchedule[0][3]].name + ", " + playerArr[mixup.randSchedule[0][4]].name + ", " + playerArr[mixup.randSchedule[0][5]].name
-    else:
-        await ctx.send("mixup type incorrectly assigned")
-        return
-
-    #send first game in schedule
-    await ctx.send("Setup Complete.\n" + firstGame)
+    await ctx.send("Let's begin a mixup!", view=BeginButton())
 
 @bot.command()
 async def result(ctx, s1, s2):
@@ -160,22 +134,7 @@ async def result(ctx, s1, s2):
 
     #if there are more games to play
     if (mixup.numGamesPlayed < mixup.maxGames):
-        #getting new players
-        p1 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][0]]
-        p2 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][1]]
-        p3 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][2]]
-        p4 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][3]]
-
-        if (mixup.type == 6):
-            p5 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][4]]
-            p6 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][5]]
-
-            nextGame = "GAME " + str(mixup.numGamesPlayed + 1) + "/" + str(mixup.maxGames) + ": " + p1.name + ", " + p2.name + ", " + p3.name + "vs. " + p4.name + "," + p5.name + ", " + p6.name
-        
-        else:
-            nextGame = "GAME " + str(mixup.numGamesPlayed + 1) + "/" + str(mixup.maxGames) + ": " + p1.name + ", " + p2.name + " vs. " + p3.name + ", " + p4.name
-
-        await ctx.send("Scores Updated.\n" + nextGame)
+        await start_game(ctx, mixup)
 
     else:
         await ctx.send("Mixup finished, sending final scores.")
@@ -204,92 +163,45 @@ async def end(ctx):
 
 def updateScores(s1, s2):
     t1Win = s1 > s2
-    if (mixup.type == 6):
-        #Figure out who is who
-        p1 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][0]]
-        p2 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][1]]
-        p3 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][2]]
-        p4 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][3]]
-        p5 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][4]]
-        p6 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][5]]
+    game = mixup.randSchedule.pop(0)
+    t1 = teamArr[0]
+    t2 = teamArr[1]
+    print(game[:mixup.team_size])
+    print(game[mixup.team_size:])
+    for team in teamArr:
+        if (set(team.players) == set(game[:mixup.team_size])):
+            t1 = team
+        elif (set(team.players) == set(game[mixup.team_size:])):
+            t2 = team
+    for index, player in enumerate(playerArr):
+        for x, baller in enumerate(game):
+            if player.name == baller:
+                if x < mixup.team_size / 2:
+                    if t1Win:
+                        player.wins+=1
+                    else:
+                        player.losses+=1
+                    player.goalsFor+=s1
+                    player.goalsAgainst+=s2
+                else:
+                    if not t1Win:
+                        player.wins+=1
+                    else:
+                        player.losses+=1
+                    player.goalsFor+=s2
+                    player.goalsAgainst+=s1
+    if t1Win:
+        t1.wins += 1
+        t2.losses += 1
+    if not t1Win:
+        t2.wins += 1
+        t1.losses += 1
 
-        #update wins
-        if t1Win:
-            p1.wins += 1
-            p2.wins += 1
-            p3.wins += 1
-            p4.losses += 1
-            p5.losses += 1
-            p6.losses += 1
-        
-        else:
-            p1.losses += 1
-            p2.losses += 1
-            p3.losses += 1
-            p4.wins += 1
-            p5.wins += 1
-            p6.wins += 1
+    t1.goalsFor += s1
+    t2.goalsAgainst += s1
+    t1.goalsAgainst += s2
+    t2.goalsFor += s2
 
-        #update goals
-        p1.goalsFor += s1
-        p2.goalsFor += s1
-        p3.goalsFor += s1
-        p4.goalsAgainst += s1
-        p5.goalsAgainst += s1
-        p6.goalsAgainst += s1
-
-        p1.goalsAgainst += s2
-        p2.goalsAgainst += s2
-        p3.goalsAgainst += s2
-        p4.goalsFor += s2
-        p5.goalsFor += s2
-        p6.goalsFor += s2
-
-    else:
-        #Figure out which teams are playing
-        for team in teamArr:
-            if (team.players == [mixup.randSchedule[mixup.numGamesPlayed][0], mixup.randSchedule[mixup.numGamesPlayed][1]]):
-                t1 = team
-            elif (team.players == [mixup.randSchedule[mixup.numGamesPlayed][2], mixup.randSchedule[mixup.numGamesPlayed][3]]):
-                t2 = team
-        
-        #figure out who is who
-        p1 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][0]]
-        p2 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][1]]
-        p3 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][2]]
-        p4 = playerArr[mixup.randSchedule[mixup.numGamesPlayed][3]]
-
-        #update wins
-        if t1Win:
-            p1.wins += 1
-            p2.wins += 1
-            p3.losses += 1
-            p4.losses += 1
-            t1.wins += 1
-            t2.losses += 1
-
-        else: 
-            p1.losses += 1
-            p2.losses += 1
-            p3.wins += 1
-            p4.wins += 1
-            t1.losses += 1
-            t2.wins += 1
-
-        #update goals
-        p1.goalsFor += s1
-        p2.goalsFor += s1
-        p3.goalsAgainst += s1
-        p4.goalsAgainst += s1
-        t1.goalsFor += s1
-        t2.goalsAgainst += s1
-
-        p1.goalsAgainst += s2
-        p2.goalsAgainst += s2
-        p3.goalsFor += s2
-        p4.goalsFor += s2
-        t1.goalsAgainst += s2
-        t2.goalsFor += s2
         
 
 async def sendScores(ctx):
@@ -491,4 +403,25 @@ async def writeScores():
     newFile.write("\n==============================================\n")
     
     newFile.close()
+
+class BeginButton(discord.ui.View):
+    def __init__(self, timeout=180):
+        super().__init__(timeout=timeout)
+    @discord.ui.button(label="Begin Mixup",style=discord.ButtonStyle.green)
+    async def green_button(self,interaction:discord.Interaction,button:discord.ui.Button):
+        await interaction.response.send_modal(InformationModal())
+
+class InformationModal(discord.ui.Modal, title='Setup Information Input'):
+
+    player_names = discord.ui.TextInput(label='Player Names:', required=True, placeholder='Enter player names with spaces')
+    team_size = discord.ui.TextInput(placeholder='Enter team size...', label='Team Size:', required=True)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        individuals = self.player_names.value.split(' ')
+        if len(individuals) < int(self.team_size.value)*2:
+            await interaction.response.send_message("Oh no! There are less people than can make 2 teams!")
+        else:
+            await interaction.response.send_message("Thank you for submitting the mixup information. May the games begin!")
+            initialize_mixup(individuals, int(self.team_size.value))
+            await start_game(interaction.channel, mixup)
 bot.run(TOKEN)
