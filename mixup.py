@@ -3,6 +3,7 @@ import itertools
 import os
 import random
 import discord
+import mixupEmbedder
 import mixupWriter
 
 
@@ -40,7 +41,9 @@ class Mixup:
         nextGame = "GAME " + str(self.numGamesPlayed + 1) + "/" + str(self.maxGames) + ":" 
         
         for x in range(self.team_size * 2):
-            nextGame += self.randSchedule[0][x]
+            nextGame += self.randSchedule[0][x] + ' '
+            if (x==self.team_size - 1):
+                nextGame+= 'vs. '
         await ctx.send(nextGame)
 
     def generate_schedule(self, players, teamsize):
@@ -150,11 +153,10 @@ class Mixup:
         t2.goalsFor += s2
 
     async def sendScores(self, ctx):
-        writer = mixupWriter.MixupWriter()
-        message = writer.print_scores(self)
-        split = self.message_split(message)
-        for phrase in split:
-            await ctx.send(phrase)
+        embedder = mixupEmbedder.MixupEmbedder()
+        embeds = embedder.embed_scores(self)
+        for result_embed in embeds:
+            await ctx.send(embed=result_embed)
 
     def message_split(self, message: str):
         split = message.split('#')
