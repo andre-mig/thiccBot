@@ -9,6 +9,8 @@ After mixup is done, sends the stats to the chat, writes the stats to a text fil
 
 stat sending/writing is a bit buggy, tracking seems close to correct, reporting probably isn't write
 
+Writes to a google sheet after the mixup ends
+
 
 Things to do: 
 

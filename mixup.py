@@ -5,6 +5,7 @@ import random
 import discord
 import mixupEmbedder
 import mixupWriter
+import spreadsheetWriter
 
 
 class Player:
@@ -35,6 +36,7 @@ class Mixup:
     team_size = 0
     playerArr = []
     teamArr = []
+    spreadsheeter = spreadsheetWriter.spreadsheetWriter()
 
 
     async def start_game(self, ctx):
@@ -160,7 +162,6 @@ class Mixup:
 
     def message_split(self, message: str):
         split = message.split('#')
-        print(split)
         return split
     
     async def writeScores(self):
@@ -174,3 +175,4 @@ class Mixup:
         message = writer.print_scores(self)
         for phrase in self.message_split(message):
             newFile.write(phrase)
+        await self.spreadsheeter.write_results(self)
